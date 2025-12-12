@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenByte - Crop Prediction System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌱 GreenByte</h1>
+            <p class="subtitle">AI-Powered Crop Prediction System</p>
+        </div>
+
+        <div class="content-wrapper">
+            <!-- Input Form Section -->
+            <div class="form-section">
+                <h2>Enter Your Farm Details</h2>
+                <form id="predictionForm">
+                    <div class="form-group">
+                        <label for="landArea">Land Area (sq ft):</label>
+                        <input 
+                            type="number" 
+                            id="landArea" 
+                            name="landArea" 
+                            placeholder="e.g., 5000" 
+                            required
+                            min="1"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="latitude">Latitude:</label>
+                        <input 
+                            type="number" 
+                            id="latitude" 
+                            name="latitude" 
+                            placeholder="e.g., 13.1172" 
+                            step="0.0001"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="longitude">Longitude:</label>
+                        <input 
+                            type="number" 
+                            id="longitude" 
+                            name="longitude" 
+                            placeholder="e.g., 77.6346" 
+                            step="0.0001"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="soilType">Soil Type:</label>
+                        <select id="soilType" name="soilType" required>
+                            <option value="">Select Soil Type</option>
+                            <option value="Loamy">Loamy</option>
+                            <option value="Sandy">Sandy</option>
+                            <option value="Clayey">Clayey</option>
+                            <option value="Silty">Silty</option>
+                        </select>
+                    </div>
+
+                    <!-- Soil Attributes Section -->
+                    <div id="soilAttributesContainer" class="soil-attributes-section" style="display: none;">
+                        <h3>🌍 Soil Properties</h3>
+                        <div id="soilAttributesGrid" class="soil-attributes-grid"></div>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Get Crop Prediction</button>
+                </form>
+
+                <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing your farm data...</p>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <h2>Prediction Results</h2>
+                
+                <div class="crops-table-card">
+                    <h3>🌾 Recommended Crops & Water Requirements</h3>
+                    <table class="crops-table">
+                        <thead>
+                            <tr>
+                                <th>Crop Name</th>
+                                <th>Water Required (Liters)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cropsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="climate-data-card">
+                    <h3>🌤️ Climate Data (Last 30 Days)</h3>
+                    <div class="climate-info-grid">
+                        <div class="climate-info-item">
+                            <span class="climate-info-label">Avg Air Temp (C)</span>
+                            <span id="avgTempValue" class="climate-info-value">-</span>
+                        </div>
+                        <div class="climate-info-item">
+                            <span class="climate-info-label">Avg Soil Moisture (0-5cm)</span>
+                            <span id="soilMoistureValue" class="climate-info-value">-</span>
+                        </div>
+                        <div class="climate-info-item">
+                            <span class="climate-info-label">Avg Surface Temp (C)</span>
+                            <span id="surfaceTempValue" class="climate-info-value">-</span>
+                        </div>
+                        <div class="climate-info-item">
+                            <span class="climate-info-label">Total Rainfall (mm)</span>
+                            <span id="totalRainfallValue" class="climate-info-value">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crop Timeline Section -->
+                <div class="timeline-card">
+                    <h3>📅 Crop Planting Timeline</h3>
+                    <div class="timeline-table-wrapper">
+                        <table class="timeline-table">
+                            <thead>
+                                <tr>
+                                    <th>Crop</th>
+                                    <th>Season</th>
+                                    <th>Jan</th>
+                                    <th>Feb</th>
+                                    <th>Mar</th>
+                                    <th>Apr</th>
+                                    <th>May</th>
+                                    <th>Jun</th>
+                                    <th>Jul</th>
+                                    <th>Aug</th>
+                                    <th>Sep</th>
+                                    <th>Oct</th>
+                                    <th>Nov</th>
+                                    <th>Dec</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timelineTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Yield prediction and best sowing time -->
+                <div class="yield-table-card">
+                    <h3>📊 Yield Prediction & Financial Analysis</h3>
+                    <table class="yield-table">
+                        <thead>
+                            <tr>
+                                <th>Crop Name</th>
+                                <th>Yield (kg)</th>
+                                <th>Market Rate (₹/kg)</th>
+                                <th>Cost of Selling (₹)</th>
+                                <th>Cost of Growing (₹)</th>
+                                <th>ROI (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="yieldTableBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="result-card sowing-card">
+                    <h3>📅 Best Sowing Time</h3>
+                    <p id="sowingResult" class="result-content"></p>
+                </div>
+
+                <button type="button" class="btn-new-prediction" onclick="resetForm()">New Prediction</button>
+            </div>
+
+            <!-- Error Section -->
+            <div id="errorSection" class="error-section" style="display: none;">
+                <h3>❌ Error</h3>
+                <p id="errorMessage"></p>
+                <button type="button" class="btn-close-error" onclick="closeError()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
