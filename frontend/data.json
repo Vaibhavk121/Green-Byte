@@ -1,0 +1,338 @@
+[
+{
+  "name": "Kolar / Chikkaballapur",
+  "zone": "Eastern Dry Zone",
+  "latitude": "13.1362 N",
+  "longitude": "78.1251 E",
+  "crops": {
+    "ragi": {
+      "expected_yield_kg": 1000,
+      "predicted_yield_kg": 950,
+      "water_kl": 160,
+      "market_rate": 32,
+      "sell_value": 30400,
+      "cost": 17000,
+      "roi": 0.79
+    },
+    "jowar": {
+      "expected_yield_kg": 1200,
+      "predicted_yield_kg": 1100,
+      "water_kl": 200,
+      "market_rate": 28,
+      "sell_value": 30800,
+      "cost": 18000,
+      "roi": 0.71
+    },
+    "maize": {
+      "expected_yield_kg": 2400,
+      "predicted_yield_kg": 2300,
+      "water_kl": 330,
+      "market_rate": 20,
+      "sell_value": 46000,
+      "cost": 27000,
+      "roi": 0.70
+    },
+    "groundnut": {
+      "expected_yield_kg": 1500,
+      "predicted_yield_kg": 1400,
+      "water_kl": 300,
+      "market_rate": 55,
+      "sell_value": 77000,
+      "cost": 44000,
+      "roi": 0.75
+    },
+    "sunflower": {
+      "expected_yield_kg": 900,
+      "predicted_yield_kg": 850,
+      "water_kl": 240,
+      "market_rate": 52,
+      "sell_value": 44200,
+      "cost": 29000,
+      "roi": 0.52
+    },
+    "pulses": {
+      "expected_yield_kg": 950,
+      "predicted_yield_kg": 900,
+      "water_kl": 140,
+      "market_rate": 70,
+      "sell_value": 63000,
+      "cost": 32000,
+      "roi": 0.96
+    },
+    "tomato": {
+      "expected_yield_kg": 12000,
+      "predicted_yield_kg": 11000,
+      "water_kl": 550,
+      "market_rate": 10,
+      "sell_value": 110000,
+      "cost": 80000,
+      "roi": 0.37
+    },
+    "mango": {
+      "expected_yield_kg": 5000,
+      "predicted_yield_kg": 4800,
+      "water_kl": 300,
+      "market_rate": 30,
+      "sell_value": 144000,
+      "cost": 95000,
+      "roi": 0.51
+    },
+    "grapes": {
+      "expected_yield_kg": 9000,
+      "predicted_yield_kg": 8700,
+      "water_kl": 700,
+      "market_rate": 35,
+      "sell_value": 304500,
+      "cost": 185000,
+      "roi": 0.64
+    }
+  }
+},
+{
+  "name": "Mysuru / Mandya",
+  "zone": "Southern Dry / Transition Zone",
+  "latitude": "12.2958 N",
+  "longitude": "76.6550 E",
+  "crops": {
+    "ragi": {
+      "expected_yield_kg": 1100,
+      "predicted_yield_kg": 1000,
+      "water_kl": 150,
+      "market_rate": 32,
+      "sell_value": 32000,
+      "cost": 17000,
+      "roi": 0.88
+    },
+    "jowar": {
+      "expected_yield_kg": 1300,
+      "predicted_yield_kg": 1200,
+      "water_kl": 180,
+      "market_rate": 28,
+      "sell_value": 33600,
+      "cost": 17500,
+      "roi": 0.92
+    },
+    "maize": {
+      "expected_yield_kg": 2600,
+      "predicted_yield_kg": 2500,
+      "water_kl": 340,
+      "market_rate": 20,
+      "sell_value": 50000,
+      "cost": 29000,
+      "roi": 0.72
+    },
+    "sugarcane": {
+      "expected_yield_kg": 50000,
+      "predicted_yield_kg": 48000,
+      "water_kl": 1800,
+      "market_rate": 3.5,
+      "sell_value": 168000,
+      "cost": 120000,
+      "roi": 0.40
+    },
+    "groundnut": {
+      "expected_yield_kg": 1500,
+      "predicted_yield_kg": 1400,
+      "water_kl": 320,
+      "market_rate": 55,
+      "sell_value": 77000,
+      "cost": 44000,
+      "roi": 0.75
+    },
+    "tobacco": {
+      "expected_yield_kg": 1800,
+      "predicted_yield_kg": 1700,
+      "water_kl": 250,
+      "market_rate": 165,
+      "sell_value": 280500,
+      "cost": 150000,
+      "roi": 0.87
+    },
+    "jaggery": {
+      "expected_yield_kg": 4500,
+      "predicted_yield_kg": 4300,
+      "water_kl": 0,
+      "market_rate": 40,
+      "sell_value": 172000,
+      "cost": 110000,
+      "roi": 0.56
+    }
+  }
+},
+{
+  "name": "Chikkamagaluru / Kodagu",
+  "zone": "Hilly Zone",
+  "latitude": "13.3161 N",
+  "longitude": "75.7725 E",
+  "crops": {
+    "coffee": {
+      "expected_yield_kg": 900,
+      "predicted_yield_kg": 850,
+      "water_kl": 600,
+      "market_rate": 160,
+      "sell_value": 136000,
+      "cost": 95000,
+      "roi": 0.43
+    },
+    "arecanut": {
+      "expected_yield_kg": 1800,
+      "predicted_yield_kg": 1700,
+      "water_kl": 900,
+      "market_rate": 350,
+      "sell_value": 595000,
+      "cost": 430000,
+      "roi": 0.38
+    },
+    "pepper": {
+      "expected_yield_kg": 400,
+      "predicted_yield_kg": 380,
+      "water_kl": 280,
+      "market_rate": 550,
+      "sell_value": 209000,
+      "cost": 150000,
+      "roi": 0.39
+    },
+    "cardamom": {
+      "expected_yield_kg": 250,
+      "predicted_yield_kg": 230,
+      "water_kl": 300,
+      "market_rate": 1500,
+      "sell_value": 345000,
+      "cost": 240000,
+      "roi": 0.43
+    },
+    "ginger": {
+      "expected_yield_kg": 9000,
+      "predicted_yield_kg": 8500,
+      "water_kl": 550,
+      "market_rate": 28,
+      "sell_value": 238000,
+      "cost": 140000,
+      "roi": 0.70
+    }
+  }
+},
+{
+  "name": "Dakshina Kannada / Udupi",
+  "zone": "Coastal Zone",
+  "latitude": "12.8714 N",
+  "longitude": "74.8368 E",
+  "crops": {
+    "coconut": {
+      "expected_yield_kg": 9000,
+      "predicted_yield_kg": 8500,
+      "water_kl": 450,
+      "market_rate": 35,
+      "sell_value": 297500,
+      "cost": 180000,
+      "roi": 0.65
+    },
+    "arecanut": {
+      "expected_yield_kg": 1700,
+      "predicted_yield_kg": 1600,
+      "water_kl": 800,
+      "market_rate": 350,
+      "sell_value": 560000,
+      "cost": 420000,
+      "roi": 0.33
+    },
+    "cashew": {
+      "expected_yield_kg": 1000,
+      "predicted_yield_kg": 950,
+      "water_kl": 300,
+      "market_rate": 120,
+      "sell_value": 114000,
+      "cost": 80000,
+      "roi": 0.42
+    },
+    "spices": {
+      "expected_yield_kg": 600,
+      "predicted_yield_kg": 550,
+      "water_kl": 200,
+      "market_rate": 250,
+      "sell_value": 137500,
+      "cost": 90000,
+      "roi": 0.53
+    },
+    "paddy": {
+      "expected_yield_kg": 3000,
+      "predicted_yield_kg": 2900,
+      "water_kl": 1100,
+      "market_rate": 24,
+      "sell_value": 69600,
+      "cost": 42000,
+      "roi": 0.66
+    },
+    "pulses": {
+      "expected_yield_kg": 850,
+      "predicted_yield_kg": 800,
+      "water_kl": 140,
+      "market_rate": 70,
+      "sell_value": 56000,
+      "cost": 30000,
+      "roi": 0.86
+    },
+    "mangoes": {
+      "expected_yield_kg": 5500,
+      "predicted_yield_kg": 5200,
+      "water_kl": 300,
+      "market_rate": 30,
+      "sell_value": 156000,
+      "cost": 100000,
+      "roi": 0.56
+    }
+  }
+},
+{
+  "name": "Belagavi / Bagalkot",
+  "zone": "Northern Transition / Dry Zone",
+  "latitude": "15.8500 N",
+  "longitude": "74.5000 E",
+  "crops": {
+    "jowar": {
+      "expected_yield_kg": 1400,
+      "predicted_yield_kg": 1300,
+      "water_kl": 200,
+      "market_rate": 28,
+      "sell_value": 36400,
+      "cost": 18500,
+      "roi": 0.97
+    },
+    "maize": {
+      "expected_yield_kg": 2700,
+      "predicted_yield_kg": 2600,
+      "water_kl": 350,
+      "market_rate": 20,
+      "sell_value": 52000,
+      "cost": 29000,
+      "roi": 0.79
+    },
+    "sugarcane": {
+      "expected_yield_kg": 52000,
+      "predicted_yield_kg": 50000,
+      "water_kl": 1900,
+      "market_rate": 3.5,
+      "sell_value": 175000,
+      "cost": 125000,
+      "roi": 0.40
+    },
+    "cotton": {
+      "expected_yield_kg": 1900,
+      "predicted_yield_kg": 1800,
+      "water_kl": 480,
+      "market_rate": 62,
+      "sell_value": 111600,
+      "cost": 72000,
+      "roi": 0.55
+    },
+    "onion": {
+      "expected_yield_kg": 8000,
+      "predicted_yield_kg": 7500,
+      "water_kl": 500,
+      "market_rate": 18,
+      "sell_value": 135000,
+      "cost": 90000,
+      "roi": 0.50
+    }
+  }
+}]
