@@ -2,7 +2,7 @@ import { useState } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import LandForm from "@/components/dashboard/LandForm";
 import DashboardData from "@/components/dashboard/DashboardData";
-import Chatbot from "@/components/dashboard/Chatbot";
+import Chatbot, { PredictionData } from "@/components/dashboard/Chatbot";
 
 export interface LandData {
   area: string;
@@ -14,10 +14,15 @@ export interface LandData {
 const Dashboard = () => {
   const [showDashboard, setShowDashboard] = useState(false);
   const [landData, setLandData] = useState<LandData | null>(null);
+  const [predictionData, setPredictionData] = useState<PredictionData | null>(null);
 
   const handleContinue = (data: LandData) => {
     setLandData(data);
     setShowDashboard(true);
+  };
+
+  const handleDataChange = (data: PredictionData | null) => {
+    setPredictionData(data);
   };
 
   return (
@@ -28,11 +33,11 @@ const Dashboard = () => {
         {!showDashboard ? (
           <LandForm onContinue={handleContinue} />
         ) : (
-          <DashboardData landData={landData!} />
+          <DashboardData landData={landData!} onDataChange={handleDataChange} />
         )}
       </main>
 
-      <Chatbot />
+      <Chatbot predictionData={predictionData} />
     </div>
   );
 };

@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageCircle, X, Send, Bot, User } from "lucide-react";
 
 interface Message {
@@ -12,19 +11,41 @@ interface Message {
   timestamp: Date;
 }
 
-const dummyResponses: Record<string, string> = {
-  "rice": "Rice grows best in your alluvial soil with high moisture. Ideal sowing is June-July with harvest in October-November. Your land can yield approximately 4.2 t/ha.",
-  "maize": "Maize is well-suited for your soil type. It requires medium water and grows well in temperatures 21-27°C. Expected yield: 5.8 t/ha.",
-  "water": "Based on current soil moisture (62%), irrigation is optimal. Maintain moisture levels between 60-70% for best results.",
-  "fertilizer": "For your soil type, I recommend NPK ratio of 120:60:40 kg/ha. Apply nitrogen in split doses for better absorption.",
-  "pest": "Common pests for your region: stem borer, leaf folder. Use integrated pest management with neem-based solutions.",
-  "weather": "Current conditions: 28°C, 75% humidity. Favorable for most kharif crops. No rain expected in next 3 days.",
-  "yield": "Based on your land analysis, predicted yield for Rice is 4.2 t/ha with 92% confidence. Factors: good soil moisture, optimal pH, healthy NDVI.",
-  "soil": "Your soil analysis: pH 6.8 (ideal), Nitrogen-Medium, Phosphorus-High, Potassium-Medium. Suitable for paddy, maize, and soybean.",
-  "default": "I'm your GreenBytes assistant! Ask me about crop recommendations, yield predictions, soil health, weather, irrigation, or any farming queries.",
+// Type for prediction data (matching backend response)
+type Crop = { name: string; water_required_liters: number };
+type YieldRow = {
+  crop_name: string;
+  yield_amount: number;
+  market_rate_per_unit: number;
+  cost_of_selling: number;
+  cost_of_growing: number;
+  roi: number;
 };
 
-const Chatbot = () => {
+export interface PredictionData {
+  crops: Crop[];
+  yield_data: YieldRow[];
+  crop_timeline: { crop: string; season: string; suitable_months: string[] }[];
+  best_sowing_time: string;
+  climate_data: {
+    avg_temp: number;
+    avg_soil_moisture: number;
+    avg_surface_temp: number;
+    total_rainfall: number;
+  };
+  soil_info: {
+    type: string;
+    water_retention: string;
+    nutrient_content: string;
+    pH_level: number;
+  };
+}
+
+interface ChatbotProps {
+  predictionData?: PredictionData | null;
+}
+
+const Chatbot = ({ predictionData }: ChatbotProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -36,24 +57,56 @@ const Chatbot = () => {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update welcome message when prediction data becomes available
+  useEffect(() => {
+    if (predictionData && messages.length === 1 && messages[0].id === 1) {
+      setMessages([
+        {
+          id: 1,
+          text: "Hello! I'm your GreenBytes assistant. I can answer questions about your crop recommendations, yields, ROI, and farming data. What would you like to know?",
+          isBot: true,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [predictionData]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    // Scroll to bottom when new messages are added
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isTyping]);
 
-  const getBotResponse = (userMessage: string): string => {
-    const lowerMessage = userMessage.toLowerCase();
-    
-    for (const [keyword, response] of Object.entries(dummyResponses)) {
-      if (keyword !== "default" && lowerMessage.includes(keyword)) {
-        return response;
-      }
+  const getBotResponse = async (userMessage: string): Promise<string> => {
+    // If no prediction data is available, return a helpful message
+    if (!predictionData) {
+      return "I need crop prediction data to answer your questions. Please complete the land analysis first to get crop recommendations.";
     }
-    
-    return dummyResponses.default;
+
+    try {
+      const response = await fetch("http://localhost:8000/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: userMessage,
+          prediction_data: predictionData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response from chatbot");
+      }
+
+      const data = await response.json();
+      return data.answer || "I apologize, but I couldn't generate a response. Please try rephrasing your question.";
+    } catch (error) {
+      console.error("Error fetching chatbot response:", error);
+      return "I'm having trouble connecting to the server. Please check your connection and try again.";
+    }
   };
 
   const handleSend = async () => {
@@ -67,21 +120,33 @@ const Chatbot = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput("");
     setIsTyping(true);
 
-    // Simulate bot response delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const botResponse = await getBotResponse(currentInput);
 
-    const botMessage: Message = {
-      id: messages.length + 2,
-      text: getBotResponse(input),
-      isBot: true,
-      timestamp: new Date(),
-    };
+      const botMessage: Message = {
+        id: messages.length + 2,
+        text: botResponse,
+        isBot: true,
+        timestamp: new Date(),
+      };
 
-    setIsTyping(false);
-    setMessages((prev) => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error("Error in handleSend:", error);
+      const errorMessage: Message = {
+        id: messages.length + 2,
+        text: "I encountered an error processing your question. Please try again.",
+        isBot: true,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -115,9 +180,9 @@ const Chatbot = () => {
               GreenBytes Assistant
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 p-0 flex flex-col">
+          <CardContent className="flex-1 p-0 flex flex-col overflow-hidden">
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+            <div className="flex-1 overflow-y-auto p-4">
               <div className="space-y-4">
                 {messages.map((message) => (
                   <div
@@ -138,7 +203,7 @@ const Chatbot = () => {
                           : "bg-primary text-primary-foreground"
                       }`}
                     >
-                      <p className="text-sm">{message.text}</p>
+                      <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
                     </div>
                     {!message.isBot && (
                       <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -161,8 +226,9 @@ const Chatbot = () => {
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Input */}
             <div className="p-4 border-t border-border">

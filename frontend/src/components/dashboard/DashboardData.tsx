@@ -16,6 +16,7 @@ import {
   Earth,
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { PredictionData } from "./Chatbot";
 
 import {
   BarChart,
@@ -30,24 +31,7 @@ import {
   Legend,
 } from "recharts";
 
-type Crop = { name: string; water_required_liters: number };
-type YieldRow = {
-  crop_name: string;
-  yield_amount: number;
-  market_rate_per_unit: number;
-  cost_of_selling: number;
-  cost_of_growing: number;
-  roi: number;
-};
-
-type ApiResponse = {
-  crops: Crop[];
-  yield_data: YieldRow[];
-  crop_timeline: { crop: string; season: string; suitable_months: string[] }[];
-  best_sowing_time: string;
-  climate_data: { avg_temp: number; avg_soil_moisture: number; avg_surface_temp: number; total_rainfall: number };
-  soil_info: { type: string; water_retention: string; nutrient_content: string; pH_level: number };
-};
+type ApiResponse = PredictionData;
 
 
 const COLORS = ["#60A5FA", "#34D399", "#F59E0B", "#F87171", "#A78BFA"];
@@ -55,10 +39,11 @@ const COLORS = ["#60A5FA", "#34D399", "#F59E0B", "#F87171", "#A78BFA"];
 
 interface DashboardDataProps {
   landData: LandData;
+  onDataChange?: (data: ApiResponse | null) => void;
 }
 
 const soilLabels: Record<string, string> = {
-  alluvial: "Alluvial Soil",
+  Loamy: "Alluvial Soil",
   black: "Black Cotton Soil",
   Silty: "Silty Soil",
   laterite: "Laterite Soil",
@@ -184,7 +169,7 @@ const SAMPLE_DATA: ApiResponse = {
   soil_info: { type: "Silty Soil", water_retention: "Unknown", nutrient_content: "Unknown", pH_level: 0 },
   };
 
-const DashboardData = ({ landData }: DashboardDataProps) => {
+const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,10 +204,10 @@ const DashboardData = ({ landData }: DashboardDataProps) => {
         }
 
         const result = await response.json();
+        
         setData(result);
       } catch (err) {
         console.error("Error fetching data:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch data");
       } finally {
         setLoading(false);
       }
@@ -230,6 +215,13 @@ const DashboardData = ({ landData }: DashboardDataProps) => {
 
     fetchData();
   }, [landData]);
+
+  // Notify parent component when data changes
+  useEffect(() => {
+    if (onDataChange) {
+      onDataChange(data);
+    }
+  }, [data, onDataChange]);
 
   const displayData = data;
 
@@ -505,7 +497,7 @@ const DashboardData = ({ landData }: DashboardDataProps) => {
                 </tr>
               </thead>
               <tbody>
-                {displayData.yield_data.map((y) => (
+                {displayData.yield_data?.map((y) => (
                   <tr key={y.crop_name} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-medium">{y.crop_name}</td>
                     <td className="p-3">{y.yield_amount.toLocaleString()}</td>

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
-from climate_data import fetch_and_display_data
+import uvicorn
 
 # Load environment variables
 load_dotenv()
@@ -61,6 +61,13 @@ class CropPredictionResponse(BaseModel):
     climate_data: dict
     soil_info: dict
 
+class ChatbotRequest(BaseModel):
+    question: str
+    prediction_data: CropPredictionResponse  # The output from /predict endpoint
+
+class ChatbotResponse(BaseModel):
+    answer: str
+
 @app.get("/")
 def read_root():
     """Welcome endpoint"""
@@ -103,6 +110,26 @@ async def predict_crop(request: CropPredictionRequest):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing prediction: {str(e)}")
+
+@app.post("/ask", response_model=ChatbotResponse)
+async def ask_question(request: ChatbotRequest):
+    """
+    Answer questions based strictly on the provided prediction data.
+    The chatbot will only answer questions using information from the dataset.
+    """
+    try:
+        # Create a prompt that restricts answers to only the provided dataset
+        prompt = create_chatbot_prompt(request.question, request.prediction_data)
+        
+        # Get answer from Gemini
+        answer = get_chatbot_answer(prompt)
+        
+        return {
+            "answer": answer
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
 
 def fetch_climate_data(lat: float, lon: float) -> dict:
     """Fetch climate data from NASA POWER API"""
@@ -268,6 +295,102 @@ def get_gemini_prediction(prompt: str) -> dict:
         "best_sowing_time": "Not specified"
     }
 
+def create_chatbot_prompt(question: str, prediction_data: CropPredictionResponse) -> str:
+    """Create a prompt for the chatbot that restricts answers to only the provided dataset"""
+    import json
+    
+    # Format the prediction data as a readable string
+    crops_str = "\n".join([
+        f"- {crop['name']}: Requires {crop['water_required_liters']:,} liters of water"
+        for crop in prediction_data.crops
+    ])
+    
+    yield_data_str = "\n".join([
+        f"- {y['crop_name']}: "
+        f"Yield: {y['yield_amount']} kg, "
+        f"Market Rate: ₹{y['market_rate_per_unit']}/kg, "
+        f"Sell Value: ₹{y['cost_of_selling']:,}, "
+        f"Growing Cost: ₹{y['cost_of_growing']:,}, "
+        f"ROI: {y['roi']:.2f}%"
+        for y in prediction_data.yield_data
+    ])
+    
+    
+    climate_str = (
+        f"Average Temperature: {prediction_data.climate_data['avg_temp']}°C\n"
+        f"Average Soil Moisture: {prediction_data.climate_data['avg_soil_moisture']}\n"
+        f"Average Surface Temperature: {prediction_data.climate_data['avg_surface_temp']}°C\n"
+        f"Total Rainfall: {prediction_data.climate_data['total_rainfall']} mm"
+    )
+    
+    soil_str = (
+        f"Type: {prediction_data.soil_info['type']}\n"
+        f"Water Retention: {prediction_data.soil_info['water_retention']}\n"
+        f"Nutrient Content: {prediction_data.soil_info['nutrient_content']}\n"
+        f"pH Level: {prediction_data.soil_info['pH_level']}"
+    )
+    
+    return f"""You are an agricultural assistant chatbot. You can ONLY answer questions based on the following crop prediction data provided below. 
+
+CRITICAL RULES - YOU MUST FOLLOW THESE STRICTLY:
+1. You MUST ONLY use information from the dataset provided below. Do NOT use any external knowledge.
+2. If the question asks about something NOT in this dataset, you MUST respond with: "I can only answer questions based on the provided crop prediction data. Your question cannot be answered with the available information."
+3. Do NOT make up, infer, or guess any information that is not explicitly in the dataset below.
+4. Do NOT provide general agricultural advice, farming tips, or any information outside of this specific dataset.
+5. Be concise and accurate, using only the exact numbers and facts from the dataset.
+6. If asked about crops not listed in the dataset, say they are not in the available data.
+7. If asked about general farming practices, weather patterns, or anything not in the dataset, decline politely and refer to the dataset limitation.
+
+**CROP RECOMMENDATIONS:**
+{crops_str}
+
+**YIELD & ECONOMICS DATA:**
+{yield_data_str}
+
+
+**BEST SOWING TIME:**
+{prediction_data.best_sowing_time}
+
+**CLIMATE DATA:**
+{climate_str}
+
+**SOIL INFORMATION:**
+{soil_str}
+
+**USER QUESTION:**
+{question}
+
+**YOUR ANSWER (based ONLY on the above dataset):**
+"""
+
+def get_chatbot_answer(prompt: str) -> str:
+    """Get answer from Gemini API for chatbot"""
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        
+        # Configure generation to be more focused
+        generation_config = {
+            "temperature": 0.1,  # Lower temperature for more focused answers
+            "top_p": 0.8,
+            "top_k": 40,
+            "max_output_tokens": 500,
+        }
+        
+        response = model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
+        
+        answer = response.text.strip()
+        
+        # Validate that answer is not empty
+        if not answer:
+            return "I apologize, but I couldn't generate an answer. Please try rephrasing your question."
+        
+        return answer
+    
+    except Exception as e:
+        return f"I encountered an error while processing your question: {str(e)}"
+
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
