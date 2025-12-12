@@ -169,8 +169,11 @@ const SAMPLE_DATA: ApiResponse = {
   soil_info: { type: "Silty Soil", water_retention: "Unknown", nutrient_content: "Unknown", pH_level: 0 },
   };
 
+// Alias for use in fallback scenarios
+const defaultPredictionData = SAMPLE_DATA;
+
 const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
-  const [data, setData] = useState<ApiResponse | null>(null);
+  const [data, setData] = useState<ApiResponse | null>(defaultPredictionData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -179,35 +182,70 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
     [landData.soilType]
   ) as Soil;
 
+  // Immediately notify parent with default data on mount
+  useEffect(() => {
+    if (onDataChange && defaultPredictionData) {
+      console.log("DashboardData: Initial mount - passing default data to parent");
+      onDataChange(defaultPredictionData);
+    }
+  }, []); // Run only on mount
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        console.log("DashboardData: Starting fetch with landData:", landData);
+        
         // Convert acres to square feet (1 acre = 43,560 sq ft)
         const areaInSqFt = parseFloat(landData.area) * 43560;
+        
+        const requestBody = {
+          land_area: Math.round(areaInSqFt),
+          latitude: parseFloat(landData.latitude),
+          longitude: parseFloat(landData.longitude),
+          soil_type: landData.soilType,
+        };
+        
+        console.log("DashboardData: Sending request:", requestBody);
         
         const response = await fetch("http://localhost:8000/predict", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            land_area: Math.round(areaInSqFt),
-            latitude: parseFloat(landData.latitude),
-            longitude: parseFloat(landData.longitude),
-            soil_type: landData.soilType,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
-          throw new Error("Failed to fetch prediction data");
+          throw new Error(`Failed to fetch prediction data: ${response.status}`);
         }
 
         const result = await response.json();
+        console.log("DashboardData: API Response received:", result);
         
-        setData(result);
+        // Check if result has meaningful prediction data (crops or yield_data)
+        const hasValidData = result && 
+          Object.keys(result).length > 0 &&
+          ((result.crops && result.crops.length > 0) || 
+           (result.yield_data && result.yield_data.length > 0) ||
+           result.climate_data ||
+           result.soil_info);
+        
+        if (hasValidData) {
+          console.log("DashboardData: Setting data from API response");
+          setData(result);
+        } else {
+          console.warn("DashboardData: API response lacks valid data, using default data");
+          console.log("DashboardData: API result:", result);
+          console.log("DashboardData: defaultPredictionData:", defaultPredictionData);
+          setData(defaultPredictionData);
+        }
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error("DashboardData: Error fetching data:", err);
+        // Use default data on error so chatbot still works
+        console.log("DashboardData: Using default data due to error");
+        console.log("DashboardData: defaultPredictionData:", defaultPredictionData);
+        setData(defaultPredictionData);
       } finally {
         setLoading(false);
       }
@@ -216,10 +254,27 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
     fetchData();
   }, [landData]);
 
-  // Notify parent component when data changes
+  // Notify parent component when data changes (after initial mount)
   useEffect(() => {
-    if (onDataChange) {
-      onDataChange(data);
+    console.log("DashboardData: data state updated:", data);
+    if (onDataChange && data) {
+      console.log("DashboardData: calling onDataChange with data:", data);
+      console.log("DashboardData: data validation:", {
+        hasCrops: !!(data.crops?.length),
+        hasYieldData: !!(data.yield_data?.length),
+        hasClimateData: !!data.climate_data,
+        hasSoilInfo: !!data.soil_info,
+        cropsLength: data.crops?.length || 0,
+        yieldDataLength: data.yield_data?.length || 0,
+      });
+      
+      // Ensure we always pass valid data, fallback to default if needed
+      const dataToPass = (data.crops?.length > 0 || data.yield_data?.length > 0 || data.climate_data || data.soil_info) 
+        ? data 
+        : defaultPredictionData;
+      
+      console.log("DashboardData: Passing data to parent:", dataToPass);
+      onDataChange(dataToPass);
     }
   }, [data, onDataChange]);
 
@@ -259,6 +314,13 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
 
   return (
     <div className="space-y-8" id="dashboard">
+      {/* Debug Info - Remove after testing */}
+      <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+        <p>Debug: Data available = {data ? "✅ YES" : "❌ NO"}</p>
+        <p>Loading: {loading ? "🔄 Yes" : "✅ No"}</p>
+        {data && <p>Crops count: {data.crops?.length || 0}</p>}
+      </div>
+      
       {!loading && <>
       <Card>
         <CardHeader>

@@ -81,6 +81,29 @@ const Chatbot = ({ predictionData }: ChatbotProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<boolean>(false);
+  // Use ref to always have the latest predictionData value
+  const predictionDataRef = useRef<PredictionData | null | undefined>(predictionData);
+
+  // Update ref whenever predictionData changes
+  useEffect(() => {
+    predictionDataRef.current = predictionData;
+    console.log("Chatbot: predictionData received:", predictionData);
+    console.log("Chatbot: Full predictionData structure:", JSON.stringify(predictionData, null, 2));
+    if (predictionData) {
+      console.log("Chatbot: Data breakdown:", {
+        crops: predictionData.crops,
+        cropsLength: predictionData.crops?.length,
+        yield_data: predictionData.yield_data,
+        yieldDataLength: predictionData.yield_data?.length,
+        climate_data: predictionData.climate_data,
+        soil_info: predictionData.soil_info,
+        hasCrops: !!(predictionData.crops && predictionData.crops.length > 0),
+        hasYieldData: !!(predictionData.yield_data && predictionData.yield_data.length > 0),
+        hasClimateData: !!predictionData.climate_data,
+        hasSoilInfo: !!predictionData.soil_info,
+      });
+    }
+  }, [predictionData]);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -156,7 +179,59 @@ const Chatbot = ({ predictionData }: ChatbotProps) => {
   }, [messages, isProcessing]);
 
   const getBotResponse = async (userMessage: string): Promise<string> => {
-    if (!predictionData) {
+    // Always use the latest value from ref to avoid stale closure issues
+    const currentPredictionData = predictionDataRef.current;
+    
+    console.log("getBotResponse called with message:", userMessage);
+    console.log("Current predictionData (from ref):", currentPredictionData);
+    console.log("Current predictionData (from props):", predictionData);
+    console.log("predictionData details:", {
+      exists: !!currentPredictionData,
+      hasCrops: !!(currentPredictionData?.crops?.length),
+      hasYieldData: !!(currentPredictionData?.yield_data?.length),
+      hasClimateData: !!currentPredictionData?.climate_data,
+      hasSoilInfo: !!currentPredictionData?.soil_info,
+    });
+    
+    // More lenient check: data exists if we have any meaningful prediction data
+    // (crops, yield_data, climate_data, or soil_info)
+    // Also check if predictionData is a valid object (not null/undefined)
+    const isValidObject = currentPredictionData && typeof currentPredictionData === 'object' && !Array.isArray(currentPredictionData);
+    
+    const hasCrops = !!(currentPredictionData?.crops && Array.isArray(currentPredictionData.crops) && currentPredictionData.crops.length > 0);
+    const hasYieldData = !!(currentPredictionData?.yield_data && Array.isArray(currentPredictionData.yield_data) && currentPredictionData.yield_data.length > 0);
+    const hasClimateData = !!(currentPredictionData?.climate_data && typeof currentPredictionData.climate_data === 'object' && currentPredictionData.climate_data !== null);
+    const hasSoilInfo = !!(currentPredictionData?.soil_info && typeof currentPredictionData.soil_info === 'object' && currentPredictionData.soil_info !== null);
+    const hasCropTimeline = !!(currentPredictionData?.crop_timeline && Array.isArray(currentPredictionData.crop_timeline) && currentPredictionData.crop_timeline.length > 0);
+    const hasBestSowingTime = !!(currentPredictionData?.best_sowing_time && typeof currentPredictionData.best_sowing_time === 'string' && currentPredictionData.best_sowing_time.length > 0);
+    
+    // Accept data if we have any valid field
+    const hasData = isValidObject && (hasCrops || hasYieldData || hasClimateData || hasSoilInfo || hasCropTimeline || hasBestSowingTime);
+    
+    console.log("Chatbot: Validation check:", {
+      predictionDataExists: !!currentPredictionData,
+      hasCrops,
+      hasYieldData,
+      hasClimateData,
+      hasSoilInfo,
+      hasCropTimeline,
+      hasBestSowingTime,
+      hasData,
+      cropsType: typeof currentPredictionData?.crops,
+      yieldDataType: typeof currentPredictionData?.yield_data,
+      isCropsArray: Array.isArray(currentPredictionData?.crops),
+      isYieldDataArray: Array.isArray(currentPredictionData?.yield_data),
+    });
+    
+    if (!hasData) {
+      console.error("Chatbot: No valid prediction data available!", {
+        currentPredictionData,
+        predictionDataType: typeof currentPredictionData,
+        isNull: currentPredictionData === null,
+        isUndefined: currentPredictionData === undefined,
+        refValue: predictionDataRef.current,
+        propValue: predictionData,
+      });
       const noDataResponse: Record<Language, string> = {
         en: "I need crop prediction data to answer your questions. Please complete the land analysis first.",
         hi: "आपके सवालों के जवाब देने के लिए मुझे फसल की भविष्यवाणी डेटा चाहिए। पहले भूमि विश्लेषण पूरा करें।",
@@ -164,6 +239,8 @@ const Chatbot = ({ predictionData }: ChatbotProps) => {
       };
       return noDataResponse[language];
     }
+    
+    console.log("Prediction data is available, proceeding with API call");
 
     try {
       const response = await fetch("http://localhost:8000/ask", {
@@ -173,7 +250,7 @@ const Chatbot = ({ predictionData }: ChatbotProps) => {
         },
         body: JSON.stringify({
           question: userMessage,
-          prediction_data: predictionData,
+          prediction_data: currentPredictionData,
           language: language,
         }),
       });
