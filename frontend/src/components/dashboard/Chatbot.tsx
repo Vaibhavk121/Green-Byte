@@ -21,7 +21,7 @@ const dummyResponses: Record<string, string> = {
   "weather": "Current conditions: 28°C, 75% humidity. Favorable for most kharif crops. No rain expected in next 3 days.",
   "yield": "Based on your land analysis, predicted yield for Rice is 4.2 t/ha with 92% confidence. Factors: good soil moisture, optimal pH, healthy NDVI.",
   "soil": "Your soil analysis: pH 6.8 (ideal), Nitrogen-Medium, Phosphorus-High, Potassium-Medium. Suitable for paddy, maize, and soybean.",
-  "default": "I'm your AgriYield assistant! Ask me about crop recommendations, yield predictions, soil health, weather, irrigation, or any farming queries.",
+  "default": "I'm your GreenBytes assistant! Ask me about crop recommendations, yield predictions, soil health, weather, irrigation, or any farming queries.",
 };
 
 const Chatbot = () => {
@@ -29,7 +29,7 @@ const Chatbot = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      text: "Hello! I'm your AgriYield assistant. How can I help you with your farming today?",
+      text: "Hello! I'm your GreenBytes assistant. How can I help you with your farming today?",
       isBot: true,
       timestamp: new Date(),
     },
@@ -112,7 +112,7 @@ const Chatbot = () => {
           <CardHeader className="border-b border-border py-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Bot className="w-5 h-5 text-primary" />
-              AgriYield Assistant
+              GreenBytes Assistant
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 p-0 flex flex-col">

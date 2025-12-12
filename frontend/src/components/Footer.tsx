@@ -15,7 +15,7 @@ const Footer = () => {
                 </svg>
               </div>
               <div>
-                <span className="text-xl font-bold">AgriYield</span>
+                <span className="text-xl font-bold">GreenBytes</span>
                 <p className="text-xs text-background/60">Smart Crop Advisor</p>
               </div>
             </div>
@@ -54,8 +54,8 @@ const Footer = () => {
             <ul className="space-y-3 text-background/70">
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4" />
-                <a href="mailto:contact@agriyield.com" className="hover:text-accent transition-colors">
-                  contact@agriyield.com
+                <a href="mailto:contact@GreenBytes.com" className="hover:text-accent transition-colors">
+                  contact@GreenBytes.com
                 </a>
               </li>
               <li className="flex items-center gap-2">
@@ -72,7 +72,7 @@ const Footer = () => {
 
         <div className="border-t border-background/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-background/50">
-            © 2024 AgriYield. All rights reserved. Developed by Sairam V
+            © 2024 GreenBytes. All rights reserved. Developed by Sairam V
           </p>
           <div className="flex items-center gap-6 text-sm text-background/50">
             <a href="#" className="hover:text-accent transition-colors">Privacy Policy</a>

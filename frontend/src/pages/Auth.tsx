@@ -45,7 +45,7 @@ const Auth = () => {
             <Logo />
           </div>
           <p className="text-muted-foreground">
-            {isLogin ? "Welcome back to AgriYield" : "Create your AgriYield account"}
+            {isLogin ? "Welcome back to GreenBytes" : "Create your GreenBytes account"}
           </p>
         </div>
 

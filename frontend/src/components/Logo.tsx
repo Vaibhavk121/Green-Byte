@@ -38,7 +38,7 @@ const Logo = ({ size = "md", showText = true }: LogoProps) => {
       {showText && (
         <div className="flex flex-col">
           <span className={`${textSizeClasses[size]} font-bold text-foreground leading-tight`}>
-            AgriYield
+            GreenBytes
           </span>
           <span className="text-xs text-muted-foreground font-medium">
             Smart Crop Advisor

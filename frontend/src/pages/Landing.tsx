@@ -139,7 +139,7 @@ const Landing = () => {
             Ready to Transform Your Farming?
           </h2>
           <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">
-            Join thousands of farmers who are already using AgriYield to optimize their harvests
+            Join thousands of farmers who are already using GreenBytes to optimize their harvests
           </p>
           <Link to="/auth">
             <Button size="lg" className="text-lg px-8">
@@ -154,7 +154,7 @@ const Landing = () => {
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <Logo />
           <p className="text-muted-foreground text-sm">
-            © 2025 AgriYield. All rights reserved.
+            © 2025 GreenBytes. All rights reserved.
           </p>
         </div>
       </footer>
