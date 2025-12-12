@@ -128,6 +128,19 @@
     background-attachment: fixed;
     position: relative;
   }
+
+  /* Decorative overlay to make the background visible behind sections */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(600px 600px at 20% 20%, hsl(142 55% 45% / 0.14), transparent 60%),
+      radial-gradient(500px 500px at 80% 25%, hsl(199 89% 48% / 0.12), transparent 65%),
+      linear-gradient(120deg, hsl(152 45% 18% / 0.06), hsl(120 40% 30% / 0.04) 40%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
 }
 
 @layer utilities {
@@ -250,3 +263,5 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+
