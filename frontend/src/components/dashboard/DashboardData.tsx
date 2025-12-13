@@ -14,6 +14,9 @@ import {
   Calendar,
   MapPin,
   Earth,
+  Cloud,
+  Thermometer,
+  Sun,
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { PredictionData } from "./Chatbot";
@@ -173,7 +176,7 @@ const SAMPLE_DATA: ApiResponse = {
 const defaultPredictionData = SAMPLE_DATA;
 
 const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
-  const [data, setData] = useState<ApiResponse | null>(defaultPredictionData);
+  const [data, setData] = useState<ApiResponse | null>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,13 +185,7 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
     [landData.soilType]
   ) as Soil;
 
-  // Immediately notify parent with default data on mount
-  useEffect(() => {
-    if (onDataChange && defaultPredictionData) {
-      console.log("DashboardData: Initial mount - passing default data to parent");
-      onDataChange(defaultPredictionData);
-    }
-  }, []); // Run only on mount
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -217,7 +214,22 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch prediction data: ${response.status}`);
+          // Try to get error message from response
+          let errorMessage = `Failed to fetch prediction data: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            if (errorData.detail) {
+              errorMessage = errorData.detail;
+            }
+          } catch (e) {
+            // If JSON parsing fails, use status-based message
+            if (response.status === 429) {
+              errorMessage = "API_KEY_LIMIT_EXCEEDED: API quota/rate limit has been exceeded. Please try again later.";
+            } else if (response.status === 401 || response.status === 403) {
+              errorMessage = "API_KEY_ERROR: Invalid or missing API key. Please check your API key configuration.";
+            }
+          }
+          throw new Error(errorMessage);
         }
 
         const result = await response.json();
@@ -234,18 +246,30 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
         if (hasValidData) {
           console.log("DashboardData: Setting data from API response");
           setData(result);
+          setError(null); // Clear any previous errors
         } else {
           console.warn("DashboardData: API response lacks valid data, using default data");
           console.log("DashboardData: API result:", result);
-          console.log("DashboardData: defaultPredictionData:", defaultPredictionData);
           setData(defaultPredictionData);
+          setError(null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("DashboardData: Error fetching data:", err);
-        // Use default data on error so chatbot still works
-        console.log("DashboardData: Using default data due to error");
-        console.log("DashboardData: defaultPredictionData:", defaultPredictionData);
-        setData(defaultPredictionData);
+        
+        // Extract error message
+        let errorMessage = "An error occurred while fetching prediction data.";
+        if (err instanceof Error) {
+          errorMessage = err.message;
+        } else if (typeof err === 'string') {
+          errorMessage = err;
+        }
+        
+        // Set error state to display to user
+        setError(errorMessage);
+        
+        // Don't show default data when there's an error
+        setData(null);
+        console.log("DashboardData: Error occurred, not showing default data");
       } finally {
         setLoading(false);
       }
@@ -255,28 +279,19 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
   }, [landData]);
 
   // Notify parent component when data changes (after initial mount)
+  // Don't pass data if there's an error
   useEffect(() => {
-    console.log("DashboardData: data state updated:", data);
-    if (onDataChange && data) {
-      console.log("DashboardData: calling onDataChange with data:", data);
-      console.log("DashboardData: data validation:", {
-        hasCrops: !!(data.crops?.length),
-        hasYieldData: !!(data.yield_data?.length),
-        hasClimateData: !!data.climate_data,
-        hasSoilInfo: !!data.soil_info,
-        cropsLength: data.crops?.length || 0,
-        yieldDataLength: data.yield_data?.length || 0,
-      });
-      
-      // Ensure we always pass valid data, fallback to default if needed
+    if (onDataChange && data && !error) {      
       const dataToPass = (data.crops?.length > 0 || data.yield_data?.length > 0 || data.climate_data || data.soil_info) 
-        ? data 
-        : defaultPredictionData;
+        ? data : null;
       
       console.log("DashboardData: Passing data to parent:", dataToPass);
       onDataChange(dataToPass);
+    } else if (onDataChange && error) {
+      // Don't pass any data when there's an error
+      onDataChange(null);
     }
-  }, [data, onDataChange]);
+  }, [data, error, onDataChange]);
 
   const displayData = data;
 
@@ -312,16 +327,46 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
 
 
 
+  // Check if error is API key limit related
+  const isApiLimitError = error?.includes("API_KEY_LIMIT_EXCEEDED") || error?.includes("quota") || error?.includes("rate limit");
+  const isApiKeyError = error?.includes("API_KEY_ERROR") || error?.includes("Invalid or missing API key");
+
   return (
     <div className="space-y-8" id="dashboard">
-      {/* Debug Info - Remove after testing */}
-      <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-        <p>Debug: Data available = {data ? "✅ YES" : "❌ NO"}</p>
-        <p>Loading: {loading ? "🔄 Yes" : "✅ No"}</p>
-        {data && <p>Crops count: {data.crops?.length || 0}</p>}
-      </div>
+      {/* Error Alert - Show only error when there's an error */}
+      {error && (
+        <Card className={isApiLimitError || isApiKeyError ? "border-destructive bg-destructive/5" : "border-yellow-500 bg-yellow-50"}>
+          <CardContent className="py-8">
+            <div className="flex flex-col items-center justify-center text-center gap-4">
+              <div className="text-4xl">
+                {isApiLimitError ? "⚠️" : isApiKeyError ? "🔑" : "❌"}
+              </div>
+              <div className="flex-1">
+                <p className={`text-xl font-semibold ${isApiLimitError || isApiKeyError ? "text-destructive" : "text-yellow-800"}`}>
+                  {isApiLimitError 
+                    ? "API Key Limit Exceeded" 
+                    : isApiKeyError 
+                    ? "API Key Error"
+                    : "Error"}
+                </p>
+                <p className={`text-base mt-3 ${isApiLimitError || isApiKeyError ? "text-destructive/80" : "text-yellow-700"}`}>
+                  {error.includes("API_KEY_LIMIT_EXCEEDED:") 
+                    ? error.replace("API_KEY_LIMIT_EXCEEDED: ", "")
+                    : error.includes("API_KEY_ERROR:") 
+                    ? error.replace("API_KEY_ERROR: ", "")
+                    : error}
+                </p>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Please try again later or check your API configuration.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
-      {!loading && <>
+      {/* Only show dashboard content if there's no error and not loading */}
+      {!loading && !error && <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -490,6 +535,92 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
         </Card>
       </div>
 
+      {/* Climate Data Section */}
+      {displayData?.climate_data && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cloud className="w-6 h-6 text-primary" />
+              Climate Data
+            </CardTitle>
+            <CardDescription>Recent climate conditions (Last 30 days)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-2xl border border-border p-4 shadow-sm bg-card hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Thermometer className="w-8 h-8 text-primary" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Weather Conditions
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Last 30 days average
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prominent metric: Temperature */}
+              <div className="mb-4 pb-4 border-b border-border">
+                <div className="text-3xl font-bold text-foreground">
+                  {displayData.climate_data.avg_temp}°
+                  <span className="text-base font-normal text-muted-foreground ml-2">
+                    Celsius
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Average Temperature
+                </p>
+              </div>
+
+              {/* Other climate metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                    <Sun className="w-3 h-3" />
+                    Surface Temp
+                  </div>
+                  <div className="font-medium text-foreground text-base">
+                    {displayData.climate_data.avg_surface_temp}°C
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                    <Droplets className="w-3 h-3" />
+                    Soil Moisture
+                  </div>
+                  <div className="font-medium text-foreground text-base">
+                    {(displayData.climate_data.avg_soil_moisture * 100).toFixed(2)}%
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                    <Cloud className="w-3 h-3" />
+                    Total Rainfall
+                  </div>
+                  <div className="font-medium text-foreground text-base">
+                    {displayData.climate_data.total_rainfall.toFixed(2)} mm
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                    <Calendar className="w-3 h-3" />
+                    Period
+                  </div>
+                  <div className="font-medium text-foreground text-base">
+                    30 days
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Charts Section */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Yield Chart */}
@@ -616,16 +747,6 @@ const DashboardData = ({ landData, onDataChange }: DashboardDataProps) => {
         </Card>
       )}
 
-      {error && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-destructive">Error: {error}</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Showing sample data instead
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

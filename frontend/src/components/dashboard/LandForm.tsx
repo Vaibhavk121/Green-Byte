@@ -216,57 +216,43 @@ const LandForm = ({ onContinue }: LandFormProps) => {
 
     setIsLoading(true);
 
-    // Simulate API call with 5-10 seconds loading time
-    const loadingTime = Math.random() * 5000 + 5000; // 5-10 seconds
+    // Process location matching immediately (no artificial delay)
+    try {
+      // Match coordinates with data.json
+      const match = findMatchingLocation(finalLat, finalLng);
 
-    setTimeout(() => {
-      try {
-        // Match coordinates with data.json
-        const match = findMatchingLocation(finalLat, finalLng);
-
-        if (match && match.distance < 100) {
-          // Match found within 100km
-          const data = {
-            area: formData.area,
-            latitude: finalLat.toFixed(4),
-            longitude: finalLng.toFixed(4),
-            soilType: formData.soilType,
-            locationName: match.location.name,
-            zone: match.location.zone,
-            crops: match.location.crops,
-            distance: match.distance.toFixed(2),
-          };
-          toast({
-            title: "Location Matched!",
-            description: `Found matching location: ${match.location.name} (${match.distance.toFixed(2)} km away)`,
-          });
-          onContinue(data);
-        } else {
-          // No match found within reasonable distance
-          toast({
-            title: "No matching location",
-            description:
-              "Could not find a matching location in our database. Using default data.",
-            variant: "destructive",
-          });
-          const data = {
-            area: formData.area,
-            latitude: finalLat.toFixed(4),
-            longitude: finalLng.toFixed(4),
-            soilType: formData.soilType,
-          };
-          onContinue(data);
-        }
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to process location data.",
-          variant: "destructive",
-        });
-      } finally {
+      if (match && match.distance < 100) {
+        // Match found within 100km
+        const data = {
+          area: formData.area,
+          latitude: finalLat.toFixed(4),
+          longitude: finalLng.toFixed(4),
+          soilType: formData.soilType,
+          locationName: match.location.name,
+          zone: match.location.zone,
+          crops: match.location.crops,
+          distance: match.distance.toFixed(2),
+        };
         setIsLoading(false);
+        onContinue(data);
+      } else {
+        const data = {
+          area: formData.area,
+          latitude: finalLat.toFixed(4),
+          longitude: finalLng.toFixed(4),
+          soilType: formData.soilType,
+        };
+        setIsLoading(false);
+        onContinue(data);
       }
-    }, loadingTime);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to process location data.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   };
 
   return (

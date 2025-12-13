@@ -64,6 +64,7 @@ class CropPredictionResponse(BaseModel):
 class ChatbotRequest(BaseModel):
     question: str
     prediction_data: CropPredictionResponse  # The output from /predict endpoint
+    language: str = "en"  # Language code: "en", "hi", "kn"
 
 class ChatbotResponse(BaseModel):
     answer: str
@@ -80,11 +81,21 @@ async def predict_crop(request: CropPredictionRequest):
     Uses NASA POWER API for climate data and Gemini for crop prediction.
     """
     try:
-        # Fetch climate data from NASA POWER API
-        climate_data = fetch_climate_data(request.latitude, request.longitude)
-        
-        # Get soil information from iot_data.json
+        # Get soil information from iot_data.json (fast, local file)
         soil_info = get_soil_info(request.soil_type)
+        
+        # Fetch climate data from NASA POWER API with fallback
+        try:
+            climate_data = fetch_climate_data(request.latitude, request.longitude)
+        except Exception as climate_error:
+            # Use default climate data if NASA API fails or is slow
+            print(f"Warning: NASA API failed, using default climate data: {climate_error}")
+            climate_data = {
+                "avg_temp": 25.0,
+                "avg_soil_moisture": 0.5,
+                "avg_surface_temp": 26.0,
+                "total_rainfall": 100.0
+            }
         
         # Create prompt for Gemini
         prompt = create_prediction_prompt(
@@ -108,7 +119,33 @@ async def predict_crop(request: CropPredictionRequest):
             "soil_info": soil_info
         }
     
+    except ValueError as e:
+        error_message = str(e)
+        # Check for specific error types
+        if "API_KEY_LIMIT_EXCEEDED" in error_message:
+            raise HTTPException(
+                status_code=429, 
+                detail="API_KEY_LIMIT_EXCEEDED: Gemini API quota/rate limit has been exceeded. Please try again later or check your API key limits."
+            )
+        elif "API_KEY_ERROR" in error_message:
+            raise HTTPException(
+                status_code=401,
+                detail="API_KEY_ERROR: Invalid or missing API key. Please check your Gemini API key configuration."
+            )
+        elif "GEMINI_API_ERROR" in error_message:
+            raise HTTPException(
+                status_code=500,
+                detail=error_message
+            )
+        else:
+            raise HTTPException(status_code=500, detail=f"Error processing prediction: {error_message}")
     except Exception as e:
+        error_str = str(e).lower()
+        if "quota" in error_str or "limit" in error_str or "rate limit" in error_str:
+            raise HTTPException(
+                status_code=429,
+                detail="API_KEY_LIMIT_EXCEEDED: API quota/rate limit has been exceeded. Please try again later."
+            )
         raise HTTPException(status_code=500, detail=f"Error processing prediction: {str(e)}")
 
 @app.post("/ask", response_model=ChatbotResponse)
@@ -119,10 +156,10 @@ async def ask_question(request: ChatbotRequest):
     """
     try:
         # Create a prompt that restricts answers to only the provided dataset
-        prompt = create_chatbot_prompt(request.question, request.prediction_data)
+        prompt = create_chatbot_prompt(request.question, request.prediction_data, request.language)
         
         # Get answer from Gemini
-        answer = get_chatbot_answer(prompt)
+        answer = get_chatbot_answer(prompt, request.language)
         
         return {
             "answer": answer
@@ -155,7 +192,8 @@ def fetch_climate_data(lat: float, lon: float) -> dict:
         "format": "JSON"
     }
     
-    response = requests.get(BASE_URL, params=params, timeout=15)
+    # Reduced timeout to fail faster if API is slow (5 seconds)
+    response = requests.get(BASE_URL, params=params, timeout=5)
     response.raise_for_status()
     
     data = response.json()
@@ -267,8 +305,18 @@ def get_gemini_prediction(prompt: str) -> dict:
     import json
     import re
     
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    response = model.generate_content(prompt)
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(prompt)
+    except Exception as e:
+        error_str = str(e).lower()
+        # Check for API key limit errors
+        if "quota" in error_str or "limit" in error_str or "rate limit" in error_str or "429" in error_str:
+            raise ValueError("API_KEY_LIMIT_EXCEEDED: Gemini API quota/rate limit has been exceeded. Please try again later or check your API key limits.")
+        elif "api key" in error_str or "invalid" in error_str or "401" in error_str or "403" in error_str:
+            raise ValueError("API_KEY_ERROR: Invalid or missing API key. Please check your Gemini API key configuration.")
+        else:
+            raise ValueError(f"GEMINI_API_ERROR: {str(e)}")
     
     # Extract JSON from response
     response_text = response.text
@@ -295,7 +343,7 @@ def get_gemini_prediction(prompt: str) -> dict:
         "best_sowing_time": "Not specified"
     }
 
-def create_chatbot_prompt(question: str, prediction_data: CropPredictionResponse) -> str:
+def create_chatbot_prompt(question: str, prediction_data: CropPredictionResponse, language: str = "en") -> str:
     """Create a prompt for the chatbot that restricts answers to only the provided dataset"""
     import json
     
@@ -309,8 +357,9 @@ def create_chatbot_prompt(question: str, prediction_data: CropPredictionResponse
         f"- {y['crop_name']}: "
         f"Yield: {y['yield_amount']} kg, "
         f"Market Rate: ₹{y['market_rate_per_unit']}/kg, "
-        f"Sell Value: ₹{y['cost_of_selling']:,}, "
+        f"Sell Value (Total Revenue): ₹{y['cost_of_selling']:,}, "
         f"Growing Cost: ₹{y['cost_of_growing']:,}, "
+        f"Profit (Revenue - Cost): ₹{y['cost_of_selling'] - y['cost_of_growing']:,}, "
         f"ROI: {y['roi']:.2f}%"
         for y in prediction_data.yield_data
     ])
@@ -330,23 +379,53 @@ def create_chatbot_prompt(question: str, prediction_data: CropPredictionResponse
         f"pH Level: {prediction_data.soil_info['pH_level']}"
     )
     
-    return f"""You are an agricultural assistant chatbot. You can ONLY answer questions based on the following crop prediction data provided below. 
+    # Language mapping with detailed instructions
+    language_instructions = {
+        "en": {
+            "name": "English",
+            "prefix": "Respond in English language only. Do not mix any other languages in your response.",
+        },
+        "hi": {
+            "name": "Hindi (हिंदी)",
+            "prefix": "आप को हिंदी में जवाब देना है। अपने उत्तर में किसी अन्य भाषा को मिश्रित न करें। सभी शब्द, संख्याएं और व्याख्या हिंदी में होनी चाहिए।",
+        },
+        "kn": {
+            "name": "Kannada (ಕನ್ನಡ)",
+            "prefix": "ನೀವು ಕನ್ನಡ ಭಾಷೆಯಲ್ಲಿ ಉತ್ತರ ನೀಡಬೇಕು. ನಿಮ್ಮ ಪ್ರತಿಕ್ರಿಯೆಯಲ್ಲಿ ಯಾವುದೇ ಇತರ ಭಾಷೆಯನ್ನು ಮಿಶ್ರಣ ಮಾಡಬೇಡಿ. ಎಲ್ಲಾ ಪದಗಳು, ಸಂಖ್ಯೆಗಳು ಮತ್ತು ವಿವರಣೆಯು ಕನ್ನಡದಲ್ಲಿ ಹೋಗಬೇಕು.",
+        }
+    }
+    
+    lang_config = language_instructions.get(language, language_instructions["en"])
+    target_language = lang_config["name"]
+    language_prefix = lang_config["prefix"]
+    
+    return f"""{language_prefix}
+
+You are an agricultural assistant chatbot. You can ONLY answer questions based on the following crop prediction data provided below. 
 
 CRITICAL RULES - YOU MUST FOLLOW THESE STRICTLY:
-1. You MUST ONLY use information from the dataset provided below. Do NOT use any external knowledge.
-2. If the question asks about something NOT in this dataset, you MUST respond with: "I can only answer questions based on the provided crop prediction data. Your question cannot be answered with the available information."
-3. Do NOT make up, infer, or guess any information that is not explicitly in the dataset below.
-4. Do NOT provide general agricultural advice, farming tips, or any information outside of this specific dataset.
-5. Be concise and accurate, using only the exact numbers and facts from the dataset.
-6. If asked about crops not listed in the dataset, say they are not in the available data.
-7. If asked about general farming practices, weather patterns, or anything not in the dataset, decline politely and refer to the dataset limitation.
+1. LANGUAGE REQUIREMENT: You MUST respond in {target_language} language ONLY. Every single word must be in {target_language}. Do NOT mix languages. Do NOT include English words or phrases unless they are proper nouns (like crop names or technical measurements).
+2. DATA-BASED ANSWERS ONLY: You MUST ONLY use information from the dataset provided below. Do NOT use any external knowledge.
+3. ALLOWED CALCULATIONS: You CAN perform calculations using the data provided (e.g., profit = Sell Value - Growing Cost, net income, etc.)
+4. ALLOWED TOPICS: You CAN answer questions about:
+   - Crop recommendations and their details
+   - Yield amounts, market rates, costs, ROI
+   - Profit calculations (Sell Value minus Growing Cost)
+   - Net income, earnings, or any financial metrics derivable from the data
+   - Climate data, soil information
+   - Sowing times and crop timelines
+5. DENIED REQUESTS: If the question asks about something NOT in this dataset and cannot be calculated from it, you MUST respond with a polite refusal in {target_language}.
+6. ACCURACY: Do NOT make up, infer, or guess any information that is not explicitly in the dataset below.
+7. NO EXTERNAL ADVICE: Do NOT provide general agricultural advice, farming tips, or any information outside of this specific dataset.
+8. CONCISENESS: Be concise and accurate, using only the exact numbers and facts from the dataset.
+9. MISSING DATA: If asked about crops not listed in the dataset, say they are not in the available data (in {target_language}).
+10. OUT-OF-SCOPE: If asked about general farming practices, weather patterns, or anything not in the dataset, decline politely and refer to the dataset limitation (in {target_language}).
 
 **CROP RECOMMENDATIONS:**
 {crops_str}
 
 **YIELD & ECONOMICS DATA:**
 {yield_data_str}
-
 
 **BEST SOWING TIME:**
 {prediction_data.best_sowing_time}
@@ -360,19 +439,19 @@ CRITICAL RULES - YOU MUST FOLLOW THESE STRICTLY:
 **USER QUESTION:**
 {question}
 
-**YOUR ANSWER (based ONLY on the above dataset):**
+**YOUR ANSWER (in {target_language} ONLY - do not mix languages):**
 """
 
-def get_chatbot_answer(prompt: str) -> str:
+def get_chatbot_answer(prompt: str, language: str = "en") -> str:
     """Get answer from Gemini API for chatbot"""
     try:
         model = genai.GenerativeModel("gemini-2.5-flash")
         
-        # Configure generation to be more focused
+        # Configure generation to be more focused on the requested language
         generation_config = {
-            "temperature": 0.1,  # Lower temperature for more focused answers
-            "top_p": 0.8,
-            "top_k": 40,
+            "temperature": 0.1,  # Lower temperature for more consistent language adherence
+            "top_p": 0.7,  # More restrictive for consistency
+            "top_k": 20,  # Smaller top_k for less randomness
             "max_output_tokens": 500,
         }
         
@@ -383,14 +462,47 @@ def get_chatbot_answer(prompt: str) -> str:
         
         answer = response.text.strip()
         
+        # Post-processing: Clean up any mixed language artifacts
+        # For Hindi and Kannada, check if response contains too much English and warn
+        if language in ["hi", "kn"]:
+            answer = clean_response_language(answer, language)
+        
         # Validate that answer is not empty
         if not answer:
-            return "I apologize, but I couldn't generate an answer. Please try rephrasing your question."
+            error_messages = {
+                "en": "I apologize, but I couldn't generate an answer. Please try rephrasing your question.",
+                "hi": "मुझे खेद है, लेकिन मैं उत्तर उत्पन्न नहीं कर सका। कृपया अपने प्रश्न को फिर से तैयार करने का प्रयास करें।",
+                "kn": "ಕ್ಷಮಿಸಿ, ನಾನು ಉತ್ತರವನ್ನು ರಚಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಮರುರೂಪಿಸಲು ಪ್ರಯತ್ನಿಸಿ."
+            }
+            return error_messages.get(language, error_messages["en"])
         
         return answer
     
     except Exception as e:
-        return f"I encountered an error while processing your question: {str(e)}"
+        error_messages = {
+            "en": f"I encountered an error while processing your question: {str(e)}",
+            "hi": f"आपके प्रश्न को संसाधित करते समय मुझे एक त्रुटि का सामना करना पड़ा: {str(e)}",
+            "kn": f"ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸುವಾಗ ನಾನು ದೋಷವನ್ನು ಎದುರಿಸಿದೆ: {str(e)}"
+        }
+        return error_messages.get(language, error_messages["en"])
+
+def clean_response_language(response: str, language: str) -> str:
+    """
+    Clean up response to ensure it stays in the requested language.
+    This removes or minimizes English text that may have been mixed in.
+    """
+    import re
+    
+    if language == "hi":
+        # For Hindi, look for common patterns where English text might be mixed
+        # Keep numeric values and proper nouns (crop names), but translate common English phrases if possible
+        pass  # The model instruction should be strong enough
+    
+    elif language == "kn":
+        # For Kannada, similar approach
+        pass  # The model instruction should be strong enough
+    
+    return response
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

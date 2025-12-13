@@ -353,22 +353,39 @@ const Chatbot = ({ predictionData }: ChatbotProps) => {
     // Try to select voice for the specified language
     const voices = speechSynthesis.getVoices();
     const selectedLanguage = languageMap[language];
+    const langCode = selectedLanguage.split("-")[0]; // e.g., "hi", "kn", "en"
     
-    // Find a voice that matches the language
-    const matchedVoice = voices.find((voice) => {
-      return voice.lang === selectedLanguage || voice.lang.startsWith(selectedLanguage.split("-")[0]);
+    // Priority 1: Find exact language match (e.g., "hi-IN")
+    let matchedVoice = voices.find((voice) => {
+      return voice.lang === selectedLanguage;
     });
+
+    // Priority 2: Find voice with language code prefix (e.g., "hi-*")
+    if (!matchedVoice) {
+      matchedVoice = voices.find((voice) => {
+        return voice.lang.startsWith(langCode + "-");
+      });
+    }
+
+    // Priority 3: Find voice that starts with language code (e.g., "hi")
+    if (!matchedVoice) {
+      matchedVoice = voices.find((voice) => {
+        return voice.lang.startsWith(langCode);
+      });
+    }
+
+    // Priority 4: For Hindi/Kannada, try to find Indian English voice as fallback
+    if (!matchedVoice && (language === "hi" || language === "kn")) {
+      matchedVoice = voices.find((voice) => {
+        return voice.lang.includes("IN") || voice.lang.includes("India");
+      });
+    }
 
     if (matchedVoice) {
       utterance.voice = matchedVoice;
+      console.log(`Using voice: ${matchedVoice.name} (${matchedVoice.lang}) for ${language}`);
     } else {
-      // Fallback: try to find any voice with the language code prefix
-      const fallbackVoice = voices.find((voice) =>
-        voice.lang.startsWith(language)
-      );
-      if (fallbackVoice) {
-        utterance.voice = fallbackVoice;
-      }
+      console.warn(`No matching voice found for ${language}, using default voice`);
     }
 
     utterance.onstart = () => {
@@ -442,9 +459,9 @@ const Chatbot = ({ predictionData }: ChatbotProps) => {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4">
               <div className="space-y-4">
-                {messages.map((message) => (
+                {messages.map((message,i) => (
                   <div
-                    key={message.id}
+                    key={i}
                     className={`flex gap-2 ${
                       message.isBot ? "justify-start" : "justify-end"
                     }`}
@@ -516,7 +533,7 @@ const Chatbot = ({ predictionData }: ChatbotProps) => {
                 <Button
                   onClick={() => {
                     if (messages.length > 1) {
-                      const lastBotMessage = messages.findLast(
+                      const lastBotMessage = messages.reverse().find(
                         (m) => m.isBot && m.id !== 1
                       );
                       if (lastBotMessage) {
